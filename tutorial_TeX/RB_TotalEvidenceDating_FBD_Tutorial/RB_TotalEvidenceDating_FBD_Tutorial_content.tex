@@ -121,7 +121,7 @@ In the example (Fig.\ \ref{fig:example-tree}), several of the fossils have sampl
 \subsection{Incorporating Fossil Occurrence Time Uncertainty}\label{subsect:Intro-TipSampling}
 
 In order to account for uncertainty in the ages of our fossil species, we can incorporate intervals on the ages of our represented fossil species.
-These intervals can be stratigraphic ranges or measurement standard error.
+These intervals can be stratigraphic ranges or measurement error.
 We do this by assuming each fossil can occur with uniform probability anywhere within its observed interval.
 This is somewhat different from the typical approach to node calibration.
 Here, instead of treating the calibration density as an additional prior distribution on the tree, we treat it as the \textit{likelihood} of our fossil data given the tree parameter.
@@ -131,22 +131,20 @@ $$f[\mathcal{F}_i \mid a_i, b_i, t_i] = \begin{cases}
 0 & \text{otherwise}
 \end{cases}$$
 In other words, we assume the likelihood is equal to one if the inferred age is consistent with the data observed.
-We can represent this likelihood in \RevBayes using a distribution that is proportional to the likelihood, \IE non-zero when the likelihood is equal to one (Fig. \ref{fig:tipsampling_gm}).
+%We can represent this likelihood in \RevBayes using a distribution that is proportional to the likelihood, \IE non-zero when the likelihood is equal to one (Fig. \ref{fig:tipsampling_gm}).
 This model component represents the observed \textsf{Fossil Occurrence Time Data} in the modular graphical model shown in figure \ref{fig:module-gm}.
-\begin{figure}[h!]
-\fbox{%
-\begin{minipage}{\textwidth}\centering
-\includegraphics[scale=0.25,angle=0]{\ResourcePath figures/tikz/tipsampling_gm}
-\caption{\small A graphical model of the fossil age likelihood model used in this tutorial. The likelihood of fossil observation $\mathcal{F}_i$ is uniform and non-zero when the inferred fossil age $t_i$ falls within the observed time interval $(a_i,b_i)$.}
-\end{minipage}}
-\label{fig:tipsampling_gm}
-\end{figure}
+%\begin{figure}[h!]
+%\fbox{%
+%\begin{minipage}{\textwidth}\centering
+%\includegraphics[scale=0.25,angle=0]{\ResourcePath figures/tikz/tipsampling_gm}
+%\caption{\small A graphical model of the fossil age likelihood model used in this tutorial. The likelihood of fossil observation $\mathcal{F}_i$ is uniform and non-zero when the inferred fossil age $t_i$ falls within the observed time interval $(a_i,b_i)$.}
+%\end{minipage}}
+%\label{fig:tipsampling_gm}
+%\end{figure}
 
 %\subsubsection{Modeling Stratigraphic Ranges}
 
-It is worth noting that this is not technically the appropriate way to model fossil data that are actually observed as stratigraphic ranges. 
-In paleontology, a stratigraphic range represents the interval of time between the first and last appearences of a fossilized species. 
-Thus, this range typically represents multiple fossil specimens observed at different times along a single lineage. 
+It is worth noting that this model does not account for the occurrence of multiple fossil specimens observed at different times along a single lineage within a stratigraphic range. 
 An extension of the fossilized birth-death process that is a distribution on stratigraphic ranges has been described by \citet{Stadler2017}. 
 This model is not yet fully implemented in \RevBayes.
 
@@ -216,7 +214,6 @@ The strict clock is the simplest morphological branch rate model we can construc
 \end{figure} 
 
 
-\newpage
 \section{Example: Estimating the Phylogeny and Divergence Times of Fossil and Extant Bears}\label{sect:Exercise}
 
 In this exercise, we will combine different types of data from 22 species of extant and extinct bears to estimate a posterior distribution of calibrated time trees for this group.
@@ -260,7 +257,7 @@ This information will be applied using clade constraints.
 %The dataset we will use encompasses 8 extant species and 14 fossil species, consisting of morphological data for 18 species, nucleotide sequence data from 10 species, and stratigraphic fossil range data for all 14 fossil species.
 %Two fossil species do not have any morphological or molecular data.
 
-\medskip
+\newpage
 \subsection{Tutorial Format}\label{subsect:Exercise-Format}
 
 This tutorial follows a specific format for issuing instructions and information.
@@ -302,10 +299,9 @@ This will create a folder called \cl{data} that contains the files necessary to 
 %You may want to use your own data instead.
 In the \cl{data} folder, you will find the following files:
 \begin{itemize}[noitemsep,topsep=0pt]
-\item \cl{bears\_taxa.tsv}: a tab-separated table listing every bear species (both fossil and extant) and their occurrence dates. For extant taxa, the occurrence date is \cl{0.0} (\IE the present) and for fossil species, the occurrence date is equal to the mean of the age range (the ranges are defined in a separate file).
+\item \cl{bears\_taxa.tsv}: a tab-separated table listing every bear species (both fossil and extant) and their age ranges (minimum and maximum in millions of years)
 \item \cl{bears\_cytb.nex}: an alignment in NEXUS format of 1,000 bp of cytochrome b sequences for 10 bear species. This alignment includes 8 living bears and 2 extinct sub-fossil bears.
 \item \cl{bears\_morphology.nex}: a matrix of 62 discrete, binary (coded \cl{0} or \cl{1}) morphological characters for 18 species of fossil and extant bears.
-\item \cl{bears\_fossil\_intervals.tsv}: a tab-separated table containing the age ranges (minimum and maximum in millions of years) for 14 fossil bears.
 \end{itemize}
 
 \bigskip
@@ -555,7 +551,7 @@ For this parameter, we will use a sliding window move (\cl{mvSlide}).
 A sliding window samples a parameter uniformly within an interval (defined by the half-width \cl{delta}). 
 Sliding window moves can be tricky for small values, as the window may overlap zero. 
 However, for parameters such as the origin age, there is little risk of this being an issue.
-
+\newpage
 {\tt \begin{snugshade*}
 \begin{lstlisting}
 origin_time ~ dnUnif(37.0, 55.0)
@@ -626,41 +622,6 @@ moves[mvi++] = mvFNPR(fbd_tree, weight=15.0)
 moves[mvi++] = mvCollapseExpandFossilBranch(fbd_tree, origin_time, weight=6.0)
 moves[mvi++] = mvNodeTimeSlideUniform(fbd_tree, weight=40.0)
 moves[mvi++] = mvRootTimeSlideUniform(fbd_tree, origin_time, weight=5.0)
-\end{lstlisting}
-\end{snugshade*}}
-
-\subsubsection{Sampling Fossil Occurrence Ages}\label{subsub:Exercise-FBD-TipSampling}
-
-Next, we need to account for uncertainty in the age estimates of our fossils using the observed minimum and maximum stratigraphic ages provided in the file \cl{bears\_fossil\_intervals.tsv}.
-First, we read this file into a matrix called \cl{intervals}.
-
-{\tt \begin{snugshade*}
-\begin{lstlisting}
-intervals = readDataDelimitedFile(file="data/bears_fossil_intervals.tsv", header=true)
-\end{lstlisting}
-\end{snugshade*}}
-
-Next, we loop over this matrix.
-For each fossil observation, we create a uniform random variable representing the likelihood.
-Remember, we can represent the fossil likelihood using any uniform distribution that is non-zero when the likelihood is equal to one (Sect.\ \ref{subsect:Intro-TipSampling}).
-
-For example, if $t_i$ is the inferred fossil age and $(a_i,b_i)$ is the observed stratigraphic interval, we know the likelihood is equal to one when $a_i < t_i < b_i$, or equivalently $t_i - b_i < 0 < t_i - a_i$.
-So let's represent the likelihood using a uniform random variable uniformly distributed in $(t_i - b_i, t_i - a_i)$ and clamped at zero.
-
-
-{\tt \begin{snugshade*}
-\begin{lstlisting}
-for(i in 1:intervals.size())
-{
-    taxon  = intervals[i][1]
-    a_i = intervals[i][2]
-    b_i = intervals[i][3]
-    
-    t[i] := tmrca(fbd_tree, clade(taxon))
-        
-    fossil[i] ~ dnUniform(t[i] - b_i, t[i] - a_i)
-    fossil[i].clamp( 0 )
-}
 \end{lstlisting}
 \end{snugshade*}}
 
@@ -933,7 +894,6 @@ You have completed the FBD model file. Save \cl{model\_Morph\_TEFBD.Rev} in the 
 We will now move on to the next model file.
 \end{framed}}
 
-\bigskip
 
 \subsection{Complete Master \Rev File}\label{subsect:Exercise-CompleteMCMC}
 
@@ -1067,7 +1027,7 @@ source("scripts/mcmc_TEFBD.Rev")
 \end{lstlisting}
 \end{snugshade*}}
 
-%\pagebreak
+\pagebreak
 This will execute the analysis and you should see the following output (though not the exact same values):
 
 {\tiny{\tt \begin{snugshade*}
